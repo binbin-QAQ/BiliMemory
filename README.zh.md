@@ -1,6 +1,6 @@
 # BiliMemory for DeepSeekHarness
 
-`dsh-bilimemory` 是一个 DeepSeekHarness / DSH Cordis 插件，用来把本地 BiliMemory 后端接入 DSH 对话。安装后可以直接在 DSH 中检查服务状态、登录 B站、搜索和采集视频、查询任务日志，并管理 QQ 链接监听。一键部署器还会配置 MaiBot A-Memorix，让 B站采集、QQ 任务和 DSH 视频任务共用长期记忆。
+`dsh-bilimemory` 是一个 DeepSeekHarness / DSH Cordis 插件，用来把本地 BiliMemory 后端接入 DSH 对话。安装后可以直接在 DSH 中检查服务状态、登录 B站、搜索和采集视频、查询任务日志，并管理 QQ 链接监听。一键部署器还会安装或配置 MaiBot A-Memorix，让 B站采集、QQ 任务和 DSH 视频任务共用长期记忆。
 
 当前版本**不包含** QQ 语音、人声提取、RVC、MeloTTS 或翻唱功能。
 
@@ -11,14 +11,14 @@
 - 第一次使用建议先调用 `bilimemory_doctor`，再调用 `bilimemory_status`。
 - B站搜索、采集和登录都依赖本机 Python、Playwright/Edge、FFmpeg 和有效登录状态。
 - QQ 群聊/私聊功能需要另行运行 MaiBot OneKey、NapCat 和 QQ 监听服务。
-- QQ 记忆需要 MaiBot 环境中已安装 A-Memorix；一键部署器会自动开启和配置它。
+- QQ 记忆需要 MaiBot 环境中的 A-Memorix；缺失时一键部署器会尝试直接安装，再开启和配置它。
 - 插件不会读取或返回 Cookie、Token、数据库内容。
 - 管理 API 和向量服务不要直接暴露到公网。
 - 视频采集属于长时间任务，调用后使用返回的任务 ID 查询进度，不要重复提交相同任务。
 
 ## 一键部署本地环境
 
-下载 Release 中的 `BiliMemory-OneClick-0.2.1.zip`，解压后双击：
+下载 Release 中的 `BiliMemory-OneClick-0.2.2.zip`，解压后双击：
 
 ```text
 install.cmd
@@ -31,6 +31,7 @@ install.cmd
 - 安装 `local-embedding` 依赖
 - 创建 `config.json`、白名单和人格示例
 - 自动发现 MaiBot OneKey 配置和 Python 环境
+- 缺少 A-Memorix 时，自动安装或升级包含该模块的 MaiBot 包
 - 自动开启 A-Memorix，并配置 `local-bge-small-zh`、512 维向量和本地 embedding 服务
 - 备份 MaiBot 的 `bot_config.toml` 和 `model_config.toml` 后再写入记忆配置
 - 写入用户环境变量和 `.env.local`
@@ -44,7 +45,13 @@ install.cmd
 .\install.ps1 -MemoryScope chat -MemoryChatId "<A-Memorix chat_id>"
 ```
 
-自动配置会开启 A-Memorix、配置本地向量模型并创建数据目录，但**不会迁移或复制已有的个人记忆数据库**。若 MaiBot 未安装或环境中没有 A-Memorix，安装器会给出警告，B站和 QQ 功能仍可继续使用，但长期记忆不可用。已有配置会先备份，再写入新配置。
+如果只想配置已有 A-Memorix、不允许安装器更新 MaiBot：
+
+```powershell
+.\install.ps1 -SkipAMemorixInstall
+```
+
+安装器会检查 `src.A_memorix`。若不存在，会使用当前 MaiBot Python 环境安装 `MaiBot>=1.3.15,<1.4`，安装成功后重新检测并继续配置。安装失败时会提示关闭 MaiBot OneKey 后重试；B站和 QQ 功能仍可继续使用。自动配置**不会迁移或复制已有的个人记忆数据库**。已有配置会先备份，再写入新配置。
 
 安装完成后仍需手动完成：
 
@@ -53,6 +60,20 @@ install.cmd
 3. 在 NapCat 中登录机器人 QQ
 4. 在管理面板或 DSH 中添加 QQ/B站白名单
 5. 在 MaiBot 和管理面板中填写 DeepSeek、视觉 API 等个人凭据
+
+## 只安装或修复 A-Memorix
+
+如果 BiliMemory 已经部署，但记忆库缺失或损坏，可以直接双击仓库根目录的：
+
+```text
+install-memory.cmd
+```
+
+它只检测、安装和配置 A-Memorix，不会重装 BiliMemory。也可以静默检查：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\install-memory.ps1 -DryRun
+```
 
 ## 直接安装 DSH 插件
 
@@ -223,9 +244,13 @@ $env:PYTHONUTF8='1'
 node server.mjs
 ```
 
-手动配置 A-Memorix（一键部署器会自动执行）：
+手动安装或修复 A-Memorix（一键部署器会自动执行）：
 
 ```powershell
+& $env:MAIBOT_PYTHON .\tools\install_amemorix.py `
+  --package-spec "MaiBot>=1.3.15,<1.4" `
+  --apply
+
 & $env:MAIBOT_PYTHON .\tools\configure_memory.py `
   --mai-bot-root $env:MAIBOT_ROOT `
   --embedding-url http://127.0.0.1:11435/v1 `
@@ -235,7 +260,7 @@ node server.mjs
   --apply
 ```
 
-该命令会先校验 TOML，再备份并写入 MaiBot 配置。省略 `--apply` 时只检查，不修改文件。
+安装命令会自动选择当前 MaiBot Python 环境；配置命令会先校验 TOML，再备份并写入。省略 `--apply` 时只检查，不修改文件。
 
 首次登录 B站：
 
@@ -256,7 +281,7 @@ python bilibili_tool.py login
 
 ### 记忆功能不可用
 
-确认 `127.0.0.1:11435` 正在运行，并在 `bilimemory_status` 中检查 MaiBot `runtimeReady` 和 `degraded`。若自动配置失败，可在 MaiBot Python 环境中运行 `tools\configure_memory.py`；不要同时手动修改模型名和向量维度。
+确认 `127.0.0.1:11435` 正在运行，并在 `bilimemory_status` 中检查 MaiBot `runtimeReady` 和 `degraded`。若提示 A-Memorix 缺失，先关闭 MaiBot OneKey，再运行 `tools\install_amemorix.py --apply`，然后运行 `tools\configure_memory.py --apply`；不要同时手动修改模型名和向量维度。
 
 ### QQ 监听不可用
 

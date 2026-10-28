@@ -52,7 +52,15 @@ $env:BILIMEMORY_ADMIN_URL = 'http://127.0.0.1:8765'
 
 ## 5. A-Memorix 长期记忆
 
-先启动本地 embedding 服务，再让 MaiBot 的 Python 环境执行配置器：
+先启动本地 embedding 服务。若 MaiBot 缺少 A-Memorix，先执行安装器：
+
+```powershell
+& $env:MAIBOT_PYTHON .\tools\install_amemorix.py `
+  --package-spec "MaiBot>=1.3.15,<1.4" `
+  --apply
+```
+
+再让 MaiBot 的 Python 环境执行配置器：
 
 ```powershell
 & $env:MAIBOT_PYTHON .\tools\configure_memory.py `
@@ -64,7 +72,7 @@ $env:BILIMEMORY_ADMIN_URL = 'http://127.0.0.1:8765'
   --apply
 ```
 
-配置器会开启 A-Memorix、设置 `data/a-memorix`、写入 embedding 模型与 provider，并在修改前备份 `bot_config.toml` 和 `model_config.toml`。省略 `--apply` 时只检查。
+安装器会自动选择当前 MaiBot Python 环境安装 `MaiBot` 包；如果 OneKey 正在运行导致文件占用，先关闭 OneKey 再执行。配置器会开启 A-Memorix、设置 `data/a-memorix`、写入 embedding 模型与 provider，并在修改前备份 `bot_config.toml` 和 `model_config.toml`。省略 `--apply` 时只检查。
 
 默认建议在 `bilibili-memory\config.json` 中设置：
 

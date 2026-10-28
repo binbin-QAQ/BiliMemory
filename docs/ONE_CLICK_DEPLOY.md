@@ -12,6 +12,7 @@
 - 安装本地向量服务依赖
 - 创建示例配置和数据目录
 - 自动发现 MaiBot OneKey 配置目录、Python 环境和可执行文件
+- 缺少 A-Memorix 时，自动安装或升级包含该模块的 MaiBot 包
 - 自动开启 A-Memorix，并配置 `local-bge-small-zh`、512 维向量和 `LocalEmbedding` provider
 - 备份 MaiBot 配置文件后写入记忆配置，并创建 `data\a-memorix` 数据目录
 - 写入 `.env.local` 和用户环境变量
@@ -32,7 +33,7 @@
 
 ## 使用
 
-下载 `BiliMemory-OneClick-0.2.1.zip`，解压后双击：
+下载 `BiliMemory-OneClick-0.2.2.zip`，解压后双击：
 
 ```text
 install.cmd
@@ -74,6 +75,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -SkipMemoryConfiguration
 ```
 
+只跳过自动安装 A-Memorix、仍配置现有模块：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -SkipAMemorixInstall
+```
+
 手动指定 MaiBot：
 
 ```powershell
@@ -83,9 +90,31 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
   -MaiBotExe "C:\Program Files\MaiBot OneKey\MaiBot OneKey.exe"
 ```
 
+## 快捷安装记忆库
+
+只想安装或修复 A-Memorix，不想重新部署 BiliMemory 时，双击：
+
+```text
+install-memory.cmd
+```
+
+静默检查：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\install-memory.ps1 -DryRun
+```
+
+只允许配置已有模块、不安装 MaiBot 包：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\install-memory.ps1 -SkipInstall
+```
+
 ## A-Memorix 自动配置
 
-安装器使用 MaiBot 自己的 Python 环境运行 `tools\configure_memory.py`。它只会修改以下配置：
+安装器先运行 `tools\configure_memory.py` 检查 `src.A_memorix`。若不存在，会使用当前 MaiBot Python 环境执行 `pip install --upgrade "MaiBot>=1.3.15,<1.4"`，安装成功后重新检测，再运行配置器。安装失败时通常是因为 MaiBot OneKey 仍在运行，关闭后重跑 `install.cmd` 即可。
+
+配置器使用 MaiBot 自己的 Python 环境运行 `tools\configure_memory.py`，只会修改以下配置：
 
 - 开启 `[a_memorix.plugin]`
 - 设置 `data_dir = "data/a-memorix"`
@@ -95,7 +124,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 
 写入前会解析并校验 TOML；写入时会保留带时间戳的 `.bilimemory-backup-*` 备份。安装器不会下载、读取、上传或迁移用户已有的记忆数据库。
 
-如果安装结束时显示 `Memory ready: False`，先确认 MaiBot OneKey 已安装 A-Memorix，再运行上面的手动命令并检查 MaiBot Python 环境。
+如果安装结束时显示 `Memory ready: False`，先关闭 MaiBot OneKey，再使用上面的一键部署器重试。仍失败时运行：
+
+```powershell
+& $env:MAIBOT_PYTHON .\tools\install_amemorix.py --package-spec "MaiBot>=1.3.15,<1.4" --apply
+& $env:MAIBOT_PYTHON .\tools\configure_memory.py --mai-bot-root $env:MAIBOT_ROOT --apply
+```
 
 ## 安装后检查
 
@@ -126,7 +160,7 @@ bilimemory_qq_status
 
 ### 找不到 MaiBot
 
-先安装并运行一次 MaiBot OneKey，再重新运行安装器；也可以使用 `-MaiBotRoot`、`-MaiBotPython`、`-MaiBotExe` 手动指定。若 MaiBot 中不存在 `src.A_memorix`，请先在 MaiBot OneKey 中升级或重装带 A-Memorix 的版本。
+先安装并运行一次 MaiBot OneKey，再重新运行安装器；也可以使用 `-MaiBotRoot`、`-MaiBotPython`、`-MaiBotExe` 手动指定。安装器会尝试直接安装或修复 A-Memorix。若失败，请关闭 MaiBot OneKey 后重新运行，或使用上面的手动安装命令。
 
 ### 记忆配置失败
 

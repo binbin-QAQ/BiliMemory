@@ -8,6 +8,8 @@ param(
   [string]$MemoryScope = "global",
   [string]$MemoryChatId = "",
   [switch]$SkipMemoryConfiguration,
+  [string]$AMemorixPackageSpec = "MaiBot>=1.3.15,<1.4",
+  [switch]$SkipAMemorixInstall,
   [switch]$InstallPrerequisites,
   [switch]$SkipPlaywrightBrowser,
   [switch]$NoStart,
@@ -241,38 +243,80 @@ if (-not $biliConfigExisted -or $memoryScopeExplicit) {
 
 Write-Step "Configuring A-Memorix memory"
 $memoryReady = $false
+$memoryInstallAttempted = $false
+$memoryPackageVersion = $null
 if ($SkipMemoryConfiguration) {
   Write-Warn "A-Memorix configuration was skipped."
 } elseif ($resolvedMaiBotRoot -and $resolvedMaiBotPython) {
+  $configurator = Join-Path $InstallRoot "tools\configure_memory.py"
   $memoryArgs = @(
-    (Join-Path $InstallRoot "tools\configure_memory.py"),
+    $configurator,
     "--mai-bot-root", $resolvedMaiBotRoot,
     "--embedding-url", "http://127.0.0.1:11435/v1",
     "--model-name", "local-bge-small-zh",
     "--model-id", "bge-small-zh-v1.5",
-    "--dimension", "512",
-    "--apply"
+    "--dimension", "512"
   )
+
+  Write-Host "  Checking A-Memorix..."
   $memoryOutput = & $resolvedMaiBotPython @memoryArgs 2>&1
   if ($LASTEXITCODE -ne 0) {
-    Write-Warn "A-Memorix configuration failed: $($memoryOutput -join ' ')"
+    Write-Warn "A-Memorix check failed: $($memoryOutput -join ' ')"
   } else {
     try {
       $memoryResult = ($memoryOutput -join "`n") | ConvertFrom-Json
-      $memoryReady = [bool]$memoryResult.aMemorixInstalled -and [bool]$memoryResult.applied
-      if ($memoryReady) {
-        Write-Ok "A-Memorix enabled with local-bge-small-zh (512 dimensions)."
+      if (-not [bool]$memoryResult.aMemorixInstalled) {
+        Write-Warn "A-Memorix is missing. MaiBot 1.3.15 or newer provides this module."
+        if ($SkipAMemorixInstall) {
+          Write-Warn "Direct A-Memorix installation was skipped by -SkipAMemorixInstall."
+        } else {
+          Write-Step "Installing A-Memorix through MaiBot"
+          Write-Host "  Package: $AMemorixPackageSpec"
+          Write-Host "  Python : $resolvedMaiBotPython"
+          $memoryInstallAttempted = $true
+          $installer = Join-Path $InstallRoot "tools\install_amemorix.py"
+          $installOutput = & $resolvedMaiBotPython $installer --package-spec $AMemorixPackageSpec --apply 2>&1
+          $installExit = $LASTEXITCODE
+          try {
+            $installResult = ($installOutput -join "`n") | ConvertFrom-Json
+            $memoryPackageVersion = $installResult.packageVersion
+            if ($installResult.output) {
+              Write-Host ($installResult.output.TrimEnd())
+            }
+            if ($installExit -ne 0 -or -not [bool]$installResult.aMemorixInstalled) {
+              throw [string]$installResult.error
+            }
+            Write-Ok "MaiBot $($installResult.packageVersion) installed; A-Memorix detected."
+          } catch {
+            Write-Warn "Direct A-Memorix installation failed: $($_.Exception.Message)"
+            Write-Warn "Close MaiBot OneKey, rerun install.cmd, or install manually with:"
+            Write-Warn "  & `"$resolvedMaiBotPython`" -m pip install --upgrade `"$AMemorixPackageSpec`""
+          }
+        }
+      }
+
+      if (-not $memoryPackageVersion) {
+        $memoryPackageVersion = & $resolvedMaiBotPython -c "import importlib.metadata; print(importlib.metadata.version('MaiBot'))" 2>$null
+      }
+      $memoryOutput = & $resolvedMaiBotPython @memoryArgs --apply 2>&1
+      if ($LASTEXITCODE -ne 0) {
+        Write-Warn "A-Memorix configuration failed: $($memoryOutput -join ' ')"
       } else {
-        Write-Warn "A-Memorix module was not found. Update or reinstall MaiBot OneKey before using long-term memory."
+        $memoryResult = ($memoryOutput -join "`n") | ConvertFrom-Json
+        $memoryReady = [bool]$memoryResult.aMemorixInstalled -and [bool]$memoryResult.applied
+        if ($memoryReady) {
+          Write-Ok "A-Memorix enabled with local-bge-small-zh (512 dimensions)."
+        } else {
+          Write-Warn "A-Memorix is still unavailable. Update MaiBot OneKey, then rerun install.cmd."
+        }
       }
     } catch {
-      Write-Warn "A-Memorix configuration returned an unreadable result."
+      Write-Warn "A-Memorix configuration returned an unreadable result: $($_.Exception.Message)"
     }
   }
 } else {
-  Write-Warn "MaiBot was not detected; A-Memorix configuration could not be applied."
+  Write-Warn "MaiBot was not detected; A-Memorix configuration and installation were skipped."
 }
-
 $envLines = @(
   "BILIMEMORY_ROOT=$InstallRoot",
   "BILIMEMORY_ADMIN_URL=http://127.0.0.1:8765",
@@ -319,4 +363,6 @@ Write-Host "Management panel: http://127.0.0.1:8765"
 Write-Host "If Bilibili login is missing: $venvPython bilibili_tool.py login"
 Write-Host "Memory scope: $effectiveMemoryScope"
 Write-Host "Memory ready: $memoryReady"
+Write-Host "Memory install attempted: $memoryInstallAttempted"
+Write-Host "MaiBot version: $memoryPackageVersion"
 Write-Host "Run the desktop shortcut later to start all services."
