@@ -1,0 +1,10 @@
+{
+  "name": "maibot-local-embedding",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Local OpenAI-compatible embeddings for MaiBot",
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1"
+  }
+}

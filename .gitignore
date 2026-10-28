@@ -1,0 +1,64 @@
+# Secrets and personal runtime state
+.env
+.env.*
+!.env.example
+config.json
+config.json.*
+storage_state.json
+browser-profile/
+mention_allowlist.json
+persona.md
+emotes.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Runtime data
+**/data/
+**/logs/
+**/tmp/
+**/outputs/
+**/dist/
+**/*.pid
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.log
+**/*.mp3
+**/*.wav
+**/*.flac
+**/*.m4a
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node and model caches
+node_modules/
+.cache/
+backups/
+coverage/
+*.tsbuildinfo
+
+# Third-party and large model/runtime directories
+maibot-ok/
+vendor/
+models/
+local-embedding/.cache/
+local-embedding/backups/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

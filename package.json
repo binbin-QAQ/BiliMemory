@@ -1,0 +1,44 @@
+{
+  "name": "dsh-bilimemory",
+  "version": "0.2.0",
+  "description": "DSH Cordis plugin for local BiliMemory. Run bilimemory_doctor before use and start the backend at 127.0.0.1:8765. Requires DSH Desktop 0.2.1-rc.2+, Windows 10/11, Node.js 22.19+, Python 3.12, Playwright/Edge, FFmpeg, Bilibili login, local embedding at 127.0.0.1:11435, and MaiBot/NapCat for QQ. Provides Bilibili status, collection, search, task and login tools plus QQ status, allowlist and restart tools. Voice, RVC, MeloTTS, raw-vocal and song-cover features are excluded.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "SECURITY.md",
+    "docs/DSH.md",
+    ".env.example"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "cordis-plugin",
+    "bilibili",
+    "qq"
+  ],
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/binbin-QAQ/BiliMemory.git"
+  },
+  "homepage": "https://github.com/binbin-QAQ/BiliMemory",
+  "bugs": {
+    "url": "https://github.com/binbin-QAQ/BiliMemory/issues"
+  }
+}

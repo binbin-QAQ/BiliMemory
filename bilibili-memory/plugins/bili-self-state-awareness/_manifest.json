@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "id": "local.bilibili.self-state",
+  "version": "1.0.0",
+  "name": "Bili Self State",
+  "description": "Read-only self status and task awareness for the Bilibili/QQ persona.",
+  "author": {
+    "name": "Local",
+    "url": "https://localhost/"
+  },
+  "license": "MIT",
+  "host_application": {
+    "min_version": "1.0.0",
+    "max_version": "9.99.99"
+  },
+  "sdk": {
+    "min_version": "2.16.0",
+    "max_version": "9.99.99"
+  },
+  "dependencies": [],
+  "plugin_type": "integration",
+  "capabilities": [],
+  "display": {
+    "icon": {
+      "type": "lucide",
+      "value": "brain-circuit"
+    }
+  },
+  "i18n": {
+    "default_locale": "zh-CN",
+    "supported_locales": [
+      "zh-CN",
+      "en-US"
+    ]
+  },
+  "urls": {
+    "repository": "https://localhost/",
+    "homepage": "https://localhost/",
+    "documentation": "https://localhost/",
+    "issues": "https://localhost/"
+  }
+}

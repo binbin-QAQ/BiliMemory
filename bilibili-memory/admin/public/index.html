@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bili Memory Control</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0f12;--panel:#11171c;--panel2:#161f25;--panel3:#1c272e;--line:#27343c;--soft:#1e2930;--text:#edf4ef;--muted:#8b9a94;--accent:#88e2c1;--warm:#ffb388;--danger:#ff7d7d;--radius:18px}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+body{background:radial-gradient(circle at 12% 0%,rgba(136,226,193,.1),transparent 30%),radial-gradient(circle at 90% 12%,rgba(255,179,136,.07),transparent 24%),var(--bg)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+.shell{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;padding:22px 16px;border-right:1px solid var(--soft);background:rgba(11,15,18,.9);backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;align-items:center;gap:12px;padding:4px 8px}.brand-mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-weight:800;color:#07130e;background:linear-gradient(135deg,var(--accent),#c7f4df);box-shadow:0 8px 24px rgba(136,226,193,.22)}
+.brand strong{display:block;font-size:14px;letter-spacing:.08em}.brand span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:var(--muted);display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:12px;text-align:left;transition:.18s}
+.nav button:hover{background:var(--panel2);color:var(--text)}.nav button.active{background:linear-gradient(90deg,rgba(136,226,193,.16),rgba(136,226,193,.04));color:var(--accent);box-shadow:inset 0 0 0 1px rgba(136,226,193,.14)}
+.nav-icon{width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;font-size:12px}
+.sidebar-foot{margin-top:auto;border-top:1px solid var(--soft);padding:15px 8px 2px;color:var(--muted);font-size:11px;line-height:1.7}.sidebar-foot a{color:var(--accent);text-decoration:none}
+.main{min-width:0;padding:20px 26px 42px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:8px 2px 20px;position:sticky;top:0;z-index:10;background:linear-gradient(180deg,rgba(11,15,18,.96) 72%,rgba(11,15,18,0));backdrop-filter:blur(8px)}
+.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;font-weight:700}.topbar h1{margin:4px 0 0;font-size:20px;font-weight:650}
+.status-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.pill{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:999px;border:1px solid var(--line);background:rgba(17,23,28,.82);font-size:11px;color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:#59625e;box-shadow:0 0 0 4px rgba(89,98,94,.1)}.dot.ok{background:var(--accent);box-shadow:0 0 0 4px rgba(136,226,193,.12)}.dot.warn{background:var(--warm);box-shadow:0 0 0 4px rgba(255,179,136,.12)}.dot.bad{background:var(--danger);box-shadow:0 0 0 4px rgba(255,125,125,.12)}
+.view{display:none;animation:enter .24s ease}.view.active{display:block}@keyframes enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.hero{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:24px;padding:28px;background:linear-gradient(125deg,rgba(31,56,51,.62),rgba(17,23,28,.96) 50%,rgba(43,31,26,.62));box-shadow:0 20px 55px rgba(0,0,0,.28)}
+.hero:after{content:"";position:absolute;right:-70px;top:-70px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(136,226,193,.19),transparent 66%);pointer-events:none}
+.hero h2{margin:0 0 10px;font-size:clamp(26px,3.4vw,42px);letter-spacing:-.04em;line-height:1.08}.hero p{max-width:680px;margin:0;color:#aab8b2;line-height:1.75;font-size:13px}
+.hero-actions,.action-row{display:flex;flex-wrap:wrap;gap:10px}.hero-actions{margin-top:21px;position:relative;z-index:1}
+.button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 14px;border-radius:11px;font-size:12px;font-weight:600;transition:.18s;display:inline-flex;align-items:center;justify-content:center;gap:8px}.button:hover{transform:translateY(-1px);border-color:#42545e;background:var(--panel3)}.button:disabled{opacity:.48;cursor:not-allowed;transform:none}
+.button.primary{background:var(--accent);color:#07130e;border-color:var(--accent);box-shadow:0 9px 25px rgba(81,205,164,.18)}.button.primary:hover{background:#a0f1d2}.button.warm{color:var(--warm);border-color:rgba(255,179,136,.3);background:rgba(255,179,136,.08)}.button.danger{color:var(--danger);border-color:rgba(255,125,125,.26);background:rgba(255,125,125,.06)}.button.ghost{background:transparent}.button.sm{padding:7px 10px;border-radius:9px;font-size:11px}
+.grid{display:grid;gap:14px}.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.section{margin-top:18px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 2px 10px}.section-head h3{margin:0;font-size:13px}.section-head p{margin:0;color:var(--muted);font-size:11px}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(22,31,37,.88),rgba(17,23,28,.94));padding:17px;box-shadow:0 10px 28px rgba(0,0,0,.1)}.metric{min-height:112px;display:flex;flex-direction:column;justify-content:space-between}.metric-label{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px}.metric-value{font-size:27px;font-weight:650;letter-spacing:-.04em;margin-top:12px}.metric-sub{margin-top:7px;color:var(--muted);font-size:11px;line-height:1.45}
+.tag{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:10px;background:rgba(255,255,255,.015)}
+.panel{padding:20px}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.panel-head h3{margin:0;font-size:14px}.panel-head p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.terminal{border:1px solid #213139;border-radius:14px;background:#080c0f;overflow:hidden}.terminal-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid #1b272d;color:var(--muted);font-size:10px;background:#0e1418}.terminal pre{margin:0;padding:14px;height:250px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#b9c9c2;font:11px/1.65 "Cascadia Code",Consolas,monospace}
+.task-list{display:grid;gap:8px}.task-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--soft);border-radius:11px;padding:11px 12px;background:rgba(255,255,255,.012)}.task-row button{border:0;background:none;color:inherit;text-align:left;padding:0}.task-name{font-size:12px}.task-meta{font-size:10px;color:var(--muted);margin-top:4px}
+.status-label{font-size:10px;padding:5px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}.status-label.running{color:var(--accent);border-color:rgba(136,226,193,.25);background:rgba(136,226,193,.06)}.status-label.completed{color:#9dddb0}.status-label.failed{color:var(--danger);border-color:rgba(255,125,125,.24)}
+.mode-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:6px;border:1px solid var(--line);border-radius:13px;background:#0d1317}.mode-tab{border:0;border-radius:9px;padding:9px 6px;background:transparent;color:var(--muted);font-size:11px}.mode-tab.active{background:var(--panel3);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(136,226,193,.14)}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:grid;gap:7px}.field.full{grid-column:1/-1}.field label,.field-label{font-size:11px;color:var(--muted)}
+.input,.select,.textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#0b1115;color:var(--text);padding:11px 12px;outline:none}.input:focus,.select:focus,.textarea:focus{border-color:rgba(136,226,193,.55);box-shadow:0 0 0 3px rgba(136,226,193,.08)}.textarea{min-height:105px;resize:vertical;line-height:1.6}
+.range-row{display:flex;align-items:center;gap:12px}.range-row input[type=range]{flex:1;accent-color:var(--accent)}.range-output{min-width:32px;text-align:center;border:1px solid var(--line);border-radius:8px;padding:4px 7px;font-size:11px;color:var(--accent);background:#0b1115}
+.switch{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:#0b1115;border-radius:11px;padding:10px 12px;font-size:11px}.switch input{accent-color:var(--accent)}
+.preset-row{display:flex;flex-wrap:wrap;gap:7px}.preset{border:1px solid var(--line);background:rgba(255,255,255,.015);color:var(--muted);padding:7px 9px;border-radius:9px;font-size:10px}.preset:hover{color:var(--accent);border-color:rgba(136,226,193,.28)}
+.callout{border:1px solid rgba(255,179,136,.18);background:rgba(255,179,136,.055);border-radius:12px;padding:12px 14px;color:#cfb3a2;font-size:11px;line-height:1.65}.callout strong{color:var(--warm)}
+.empty{padding:20px 12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:11px;text-align:center}.list{display:grid;gap:9px}.account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--soft);border-radius:11px;background:rgba(255,255,255,.012)}.account-name{font-size:12px;font-weight:600}.account-id{font:10px/1.5 "Cascadia Code",Consolas,monospace;color:var(--muted);margin-top:3px}.account-tag{font-size:10px;color:var(--accent);border:1px solid rgba(136,226,193,.24);background:rgba(136,226,193,.055);border-radius:999px;padding:4px 8px}
+.table-wrap{overflow:auto;border:1px solid var(--soft);border-radius:12px}.table{width:100%;border-collapse:collapse;font-size:11px}.table th,.table td{padding:10px 11px;text-align:left;border-bottom:1px solid var(--soft);white-space:nowrap}.table th{color:var(--muted);font-weight:500;background:#0e1418}.table tr:last-child td{border-bottom:0}
+.toast-wrap{position:fixed;right:20px;bottom:20px;display:grid;gap:8px;z-index:50}.toast{min-width:240px;max-width:360px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#12191e;color:var(--text);box-shadow:0 20px 55px rgba(0,0,0,.28);font-size:11px;line-height:1.5;animation:enter .2s}.toast.error{border-color:rgba(255,125,125,.32)}
+.muted{color:var(--muted)}.mono{font-family:"Cascadia Code",Consolas,monospace}.hidden{display:none!important}
+@media(max-width:1100px){.cols-4{grid-template-columns:repeat(2,1fr)}.cols-3{grid-template-columns:1fr}.shell{grid-template-columns:190px minmax(0,1fr)}.sidebar{padding:18px 12px}.main{padding:18px}}
+@media(max-width:760px){.shell{display:block}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--soft);padding:14px}.nav{grid-template-columns:repeat(3,1fr)}.nav button{justify-content:center}.nav button span:last-child{display:none}.sidebar-foot{display:none}.main{padding:14px}.topbar{align-items:flex-start;flex-direction:column;position:static}.status-strip{justify-content:flex-start}.cols-4,.cols-3,.cols-2,.form-grid{grid-template-columns:1fr}.mode-tabs{grid-template-columns:repeat(2,1fr)}.hero{padding:22px}.hero h2{font-size:30px}.terminal pre{height:220px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">BM</div><div><strong>BILI MEMORY</strong><span>AI 群友控制台</span></div></div>
+  <nav class="nav" aria-label="主导航">
+    <button class="active" data-view="overview"><span class="nav-icon">01</span><span>总览</span></button>
+    <button data-view="collect"><span class="nav-icon">02</span><span>采集任务</span></button>
+    <button data-view="memory"><span class="nav-icon">03</span><span>记忆同步</span></button>
+    <button data-view="allowlist"><span class="nav-icon">04</span><span>@ 白名单</span></button>
+    <button data-view="history"><span class="nav-icon">05</span><span>任务历史</span></button>
+    <button data-view="dm"><span class="nav-icon">07</span><span>B站私信</span></button>
+    <button data-view="settings"><span class="nav-icon">08</span><span>设置</span></button>
+  </nav>
+  <div class="sidebar-foot"><div>LOCAL ONLY · 127.0.0.1</div><div>固定操作白名单，不开放任意命令</div><div><a href="http://127.0.0.1:8001" target="_blank" rel="noreferrer">打开 MaiBot WebUI</a></div></div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <div><div class="eyebrow">BILIBILI × A-MEMORIX</div><h1>把视频变成可回忆的群聊记忆</h1></div>
+    <div class="status-strip" aria-live="polite">
+      <span class="pill"><span id="dot-bili" class="dot"></span><span id="label-bili">B站登录检查中</span></span>
+      <span class="pill"><span id="dot-embedding" class="dot"></span><span id="label-embedding">本地记忆服务</span></span>
+      <span class="pill"><span id="dot-memory" class="dot"></span><span id="label-memory">A-Memorix</span></span>
+      <span class="pill"><span id="dot-dm" class="dot"></span><span id="label-dm">B站私信服务</span></span>
+      <span class="pill"><span id="dot-task" class="dot"></span><span id="label-task">空闲</span></span>
+    </div>
+  </header>
+
+  <section id="view-overview" class="view active">
+    <div class="hero">
+      <h2>让 AI 自动整理视频，<br>并记住真正处理过的内容。</h2>
+      <p>从 B 站首页、分区、标签或指定链接发现视频，读取字幕与简介，由 DeepSeek 生成摘要并写入“117天团”的长期记忆。所有控制都限制在预定义操作内。</p>
+      <div class="hero-actions"><button class="button primary" data-action="collect-focus">开始采集</button><button class="button" data-action="login">B站登录</button><button class="button" data-action="status-check">运行自检</button><button class="button ghost" data-action="open-maibot">MaiBot 面板 ↗</button></div>
+    </div>
+    <div class="section"><div class="section-head"><h3>运行状态</h3><p id="last-refresh">等待刷新</p></div>
+      <div class="grid cols-4">
+        <article class="card metric"><div class="metric-label"><span>B站账号</span><span class="tag" id="bili-tag">CHECK</span></div><div><div class="metric-value" id="bili-value">检查中</div><div class="metric-sub" id="bili-sub">专用浏览器登录状态</div></div></article>
+        <article class="card metric"><div class="metric-label"><span>本地向量</span><span class="tag" id="embedding-tag">CHECK</span></div><div><div class="metric-value" id="embedding-value">检查中</div><div class="metric-sub">127.0.0.1:11435</div></div></article>
+        <article class="card metric"><div class="metric-label"><span>A-Memorix</span><span class="tag" id="memory-tag">CHECK</span></div><div><div class="metric-value" id="memory-value">检查中</div><div class="metric-sub" id="memory-sub">长期记忆运行状态</div></div></article>
+        <article class="card metric"><div class="metric-label"><span>记忆规模</span><span class="tag">LIVE</span></div><div><div class="metric-value" id="memory-count">0</div><div class="metric-sub" id="memory-count-sub">active / inactive / pinned</div></div></article>
+      </div>
+    </div>
+    <div class="grid cols-2 section">
+      <article class="card panel"><div class="panel-head"><div><h3>快捷操作</h3><p>固定动作，不会执行任意系统命令</p></div></div>
+        <div class="action-row"><button class="button" data-action="login">扫码登录</button><button class="button" data-action="embedding-start">启动记忆服务</button><button class="button" data-action="memory-rebuild">修复向量库</button><button class="button" data-action="open-summaries">打开摘要目录</button><button class="button danger" data-action="stop-task">停止当前任务</button></div>
+        <div class="section"><div class="panel-head" style="margin-bottom:10px"><div><h3>最近任务</h3><p>点击历史页查看完整日志</p></div></div><div id="recent-tasks" class="task-list"></div></div>
+      </article>
+      <article class="card panel"><div class="panel-head"><div><h3>任务输出</h3><p id="overview-task-title">当前没有运行中的任务</p></div><button class="button sm ghost" data-action="open-admin-logs">日志目录</button></div>
+        <div class="terminal"><div class="terminal-bar"><span id="overview-task-meta">READY</span><span>tailing output</span></div><pre class="task-log-output" id="log-overview">等待任务...</pre></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="view-collect" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">COLLECT</div><h3 style="font-size:24px;margin-top:6px">新建采集任务</h3></div><p>低频、可追踪、自动去重</p></div>
+    <div class="grid cols-2">
+      <article class="card panel">
+        <div class="mode-tabs" role="tablist" aria-label="采集模式"><button class="mode-tab active" data-mode="tag">标签 / 关键词</button><button class="mode-tab" data-mode="home">首页推荐</button><button class="mode-tab" data-mode="section">分区页面</button><button class="mode-tab" data-mode="direct">指定 BV</button></div>
+        <div class="section"><div id="collect-single-field" class="field"><label id="collect-input-label" for="collect-value">标签或关键词</label><input class="input" id="collect-value" value="AI" placeholder="例如：AI、人工智能、游戏"></div><div id="collect-direct-field" class="field hidden"><label for="collect-urls">BV 链接，每行一个</label><textarea class="textarea" id="collect-urls" placeholder="https://www.bilibili.com/video/BV..."></textarea></div><div id="collect-comment-field" class="field hidden"><span class="field-label">&#35780;&#35770;&#35774;&#32622;</span><label class="switch"><input id="collect-publish-comment" type="checkbox" checked> 发布总结评论并 @ 我（高置信时）</label></div></div>
+        <div class="preset-row section"><button class="preset" data-preset="ai">AI 相关</button><button class="preset" data-preset="knowledge">知识区</button><button class="preset" data-preset="game">游戏区</button><button class="preset" data-preset="home">首页推荐</button></div>
+        <div class="section grid cols-2"><div class="field"><label for="collect-max">本轮需找到的可看视频</label><div class="range-row"><input id="collect-max" type="range" min="1" max="10" value="5"><output class="range-output" id="collect-max-out">5</output></div></div><div class="field"><span class="field-label">记忆写入</span><label class="switch"><input id="collect-import" type="checkbox" checked> 摘要完成后导入 117天团</label></div></div>
+        <div class="action-row section"><button class="button primary" data-action="start-collect">开始运行</button><button class="button danger" data-action="stop-task">停止任务</button></div>
+      </article>
+      <article class="card panel"><div class="panel-head"><div><h3>实时输出</h3><p>登录、采集、摘要和记忆写入都会出现在这里</p></div></div><div class="terminal"><div class="terminal-bar"><span id="collect-task-meta">READY</span><span>live log</span></div><pre class="task-log-output" id="log-collect">等待任务...</pre></div><div class="callout section"><strong>完成条件：</strong>必须实际处理成功指定数量的可看视频；候选不足时会继续扩大搜索池，仍不足则任务标记为失败。<br><strong>处理方式：</strong>有字幕时直接读字幕；没字幕时用本地 Whisper 转写音频，首次需下载模型。</div></article>
+    </div>
+  </section>
+
+  <section id="view-memory" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">MEMORY</div><h3 style="font-size:24px;margin-top:6px">长期记忆同步</h3></div><p>选择一个 QQ 群作为导入目标</p></div>
+    <div class="grid cols-3"><article class="card metric"><div class="metric-label"><span>运行状态</span><span id="mem-runtime-tag" class="tag">CHECK</span></div><div><div class="metric-value" id="mem-runtime-value">检查中</div><div class="metric-sub" id="mem-runtime-sub">runtime / embedding</div></div></article><article class="card metric"><div class="metric-label"><span>向量检索</span><span id="mem-vector-tag" class="tag">VECTOR</span></div><div><div class="metric-value" id="mem-vector-value">0D</div><div class="metric-sub" id="mem-vector-sub">configured 0D</div></div></article><article class="card metric"><div class="metric-label"><span>记忆条目</span><span class="tag">ACTIVE</span></div><div><div class="metric-value" id="mem-active-value">0</div><div class="metric-sub" id="mem-active-sub">长期记忆总量</div></div></article></div>
+    <div class="grid cols-2 section">
+      <article class="card panel"><div class="panel-head"><div><h3>同步目标</h3><p>导入时使用该聊天流 ID</p></div></div><div class="field"><label for="memory-scope">作用域</label><select class="select" id="memory-scope"><option value="chat">指定聊天流</option><option value="global">全局记忆</option></select></div><div class="field section"><label for="memory-chat-id">聊天流</label><select class="select" id="memory-chat-id"></select></div><div class="action-row section"><button class="button primary" data-action="save-memory-target">保存同步目标</button><button class="button" data-action="open-maibot">打开 MaiBot 记忆面板 ↗</button></div><div class="callout section"><strong>隐私：</strong>指定聊天流只让“117天团”召回这些视频记忆；全局模式会让其他聊天流也可能检索到。</div></article>
+      <article class="card panel"><div class="panel-head"><div><h3>可用聊天流</h3><p>来自 MaiBot 当前会话列表</p></div><button class="button sm" data-action="memory-refresh-chats">刷新</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>平台</th><th>群号</th><th>chat_id</th></tr></thead><tbody id="chat-table"></tbody></table></div></article>
+    </div>
+  </section>
+
+    <section id="view-allowlist" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">ALLOWLISTS</div><h3 style="font-size:24px;margin-top:6px">双白名单</h3></div><p>便捷添加 B站 @ 账号和 QQ 常规功能用户</p></div>
+    <div class="grid cols-2">
+      <article class="card panel"><div class="panel-head"><div><h3>B站 @ 白名单</h3><p>评论会 @ 这里启用的账号，最多前 5 个</p></div><span class="tag">BILIBILI</span></div><div id="allowlist-list" class="list"></div><div class="form-grid section"><div class="field"><label for="new-uid">B站 UID</label><input class="input" id="new-uid" inputmode="numeric" placeholder="1000000003"></div><div class="field"><label for="new-label">B站昵称（用于 @）</label><input class="input" id="new-label" placeholder="TestBot"></div><div class="field full"><button class="button primary" data-action="add-allowlist">加入 B站白名单</button></div></div></article>
+      <article class="card panel"><div class="panel-head"><div><h3>QQ 用户白名单</h3><p>只开放普通功能，不授予配置或系统控制</p></div><span class="tag">QQ</span></div><div id="qq-allowlist-list" class="list"></div><div class="form-grid section"><div class="field"><label for="new-qq">QQ 号</label><input class="input" id="new-qq" inputmode="numeric" placeholder="123456789"></div><div class="field"><label for="new-qq-label">备注</label><input class="input" id="new-qq-label" placeholder="群友 / 朋友"></div><div class="field full"><span class="field-label">开放权限</span><div class="action-row"><label class="switch"><input id="new-qq-perm-links" type="checkbox" checked> 普通链接</label><label class="switch"><input id="new-qq-perm-search" type="checkbox" checked> 搜索</label></div></div><div class="field full"><button class="button primary" data-action="add-qq-allowlist">加入 QQ 白名单</button></div></div></article>
+    </div>
+    <article class="card panel section"><div class="panel-head"><div><h3>权限边界</h3><p>白名单只提升普通功能权限，永远不开放危险操作</p></div></div><div class="list"><div class="account-row"><div><div class="account-name">配置与控制指令</div><div class="account-id">仍然只接受主人 QQ 1000000001</div></div><span class="account-tag">OWNER</span></div><div class="account-row"><div><div class="account-name">普通功能白名单</div><div class="account-id">可单独开放链接和搜索</div></div><span class="account-tag">GRANT</span></div><div class="account-row"><div><div class="account-name">任意代码、文件、Shell</div><div class="account-id">永不因 QQ 白名单开放</div></div><span class="status-label failed">BLOCKED</span></div></div><div class="callout section"><strong>使用方式：</strong>在对应卡片直接填写 UID 或 QQ 号即可加入，点击列表中的“移除”即可撤销。</div></article>
+  </section>
+
+  <section id="view-history" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">HISTORY</div><h3 style="font-size:24px;margin-top:6px">任务历史</h3></div><p>本次管理服务启动后的任务</p></div>
+    <div class="grid cols-2"><article class="card panel"><div class="panel-head"><div><h3>任务列表</h3><p>点击查看日志</p></div></div><div id="history-tasks" class="task-list"></div></article><article class="card panel"><div class="panel-head"><div><h3>日志详情</h3><p id="history-task-meta">选择一个任务</p></div></div><div class="terminal"><div class="terminal-bar"><span id="history-task-status">READY</span><span>saved output</span></div><pre class="task-log-output" id="log-history">尚未选择任务。</pre></div></article></div>
+  </section>
+
+  <section id="view-settings" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">SETTINGS</div><h3 style="font-size:24px;margin-top:6px">采集设置</h3></div><p>保存后下一次任务生效</p></div>
+    <div class="grid cols-2"><article class="card panel"><div class="panel-head"><div><h3>节奏与范围</h3><p>低频运行，避免风控和 API 费用失控</p></div></div><div class="form-grid"><div class="field"><label for="set-max">默认目标视频数</label><input class="input" id="set-max" type="number" min="1" max="20"></div><div class="field"><label for="set-scrolls">分区向下浏览次数</label><input class="input" id="set-scrolls" type="number" min="1" max="30"></div><div class="field"><label for="set-delay-min">最小间隔（秒）</label><input class="input" id="set-delay-min" type="number" min="1" max="180"></div><div class="field"><label for="set-delay-max">最大间隔（秒）</label><input class="input" id="set-delay-max" type="number" min="1" max="180"></div><div class="field"><label for="set-model">摘要模型</label><select class="select" id="set-model"><option value="deepseek-flash">deepseek-flash</option><option value="deepseek-v4-flash">deepseek-v4-flash</option><option value="deepseek-v4-pro">deepseek-v4-pro</option></select></div><div class="field"><span class="field-label">运行选项</span><label class="switch"><input id="set-headless" type="checkbox"> 浏览器无界面运行</label></div><div class="field"><label for="set-min-score">最低相关度分数</label><input class="input" id="set-min-score" type="number" min="0" max="100"></div><div class="field"><label for="set-early-chars">提前检查字符数</label><input class="input" id="set-early-chars" type="number" min="500" max="20000"></div><div class="field"><label for="set-early-score">提前筛选最低分</label><input class="input" id="set-early-score" type="number" min="0" max="100"></div></div><div class="field section"><span class="field-label">其他选项</span><label class="switch"><input id="set-description-only" type="checkbox"> 没有字幕时只按简介整理</label></div><div class="action-row section"><button class="button primary" data-action="save-settings">保存设置</button><button class="button ghost" data-action="reload-settings">重新载入</button></div></article><article class="card panel"><div class="panel-head"><div><h3>AI 过滤词</h3><p>标签或关键词命中任意一个才进入摘要</p></div></div><div class="field"><label for="set-keywords">每行一个关键词</label><textarea class="textarea" id="set-keywords" style="min-height:220px"></textarea></div><div class="field section"><label for="set-interest-profile">兴趣偏好</label><textarea class="textarea" id="set-interest-profile" style="min-height:120px"></textarea></div><div class="field"><label for="set-avoid-topics">避免主题（每行一个）</label><textarea class="textarea" id="set-avoid-topics" style="min-height:100px"></textarea></div><div class="field section"><label for="set-excluded-tags">排除标签（每行一个）</label><textarea class="textarea" id="set-excluded-tags" style="min-height:80px" placeholder="MMD"></textarea></div><div class="callout section"><strong>示例：</strong>AI、人工智能、大模型、DeepSeek、Agent、AIGC。查询其他标签时会自动以该标签本身作为过滤词。</div></article></div>
+  </section>
+  <section id="view-dm" class="view">
+    <div class="section-head" style="margin-top:2px"><div><div class="eyebrow">BILIBILI DM</div><h3 style="font-size:24px;margin-top:6px">B站私信双向</h3></div><p>只回复主人，平时轮询不消耗 token</p></div>
+    <div class="grid cols-4">
+      <article class="card metric"><div class="metric-label"><span>服务状态</span><span class="tag" id="dm-service-tag">CHECK</span></div><div><div class="metric-value" id="dm-service-value">检查中</div><div class="metric-sub" id="dm-service-sub">polling / delivery</div></div></article>
+      <article class="card metric"><div class="metric-label"><span>私信白名单</span><span class="tag">OWNER</span></div><div><div class="metric-value" id="dm-owner-value">1000000003</div><div class="metric-sub">陌生人不回复</div></div></article>
+      <article class="card metric"><div class="metric-label"><span>视频任务</span><span class="tag">TASKS</span></div><div><div class="metric-value" id="dm-task-count">0</div><div class="metric-sub" id="dm-task-sub">completed / failed</div></div></article>
+      <article class="card metric"><div class="metric-label"><span>已投递</span><span class="tag">DM</span></div><div><div class="metric-value" id="dm-delivered-count">0</div><div class="metric-sub">带 B站回执的私信</div></div></article>
+    </div>
+    <div class="section action-row"><button class="button primary" data-action="dm-check">环境自检</button><button class="button" data-action="dm-refresh">刷新任务</button><button class="button warm" data-action="dm-restart">重启私信服务</button><button class="button warm" data-action="dm-start">启动私信服务</button><button class="button ghost" data-action="login">重新扫码 B站</button></div>
+    <div class="section"><div class="section-head"><div><h3>QQ + B站链接任务</h3><p>两个平台共用采集、摘要、长期记忆和任务状态</p></div><div class="preset-row"><button class="preset" data-dm-filter="all">全部</button><button class="preset" data-dm-filter="picked">挑了</button><button class="preset" data-dm-filter="skipped">跳过 / 失败</button><button class="preset" data-dm-filter="delivered">已发给你</button></div></div><div id="dm-task-grid" class="grid cols-3"><div class="empty">还没有私信视频任务</div></div></div>
+    <div class="grid cols-2 section">
+      <article class="card panel"><div class="panel-head"><div><h3>人格提示词</h3><p>私信恢复会严格使用这里的规则</p></div><span class="tag">PERSONA</span></div><div class="field"><textarea class="textarea" id="dm-persona" style="min-height:260px"></textarea></div><div class="action-row section"><button class="button primary" data-action="save-dm-settings">保存人格与设置</button><button class="button ghost" data-action="dm-refresh">重新载入</button></div></article>
+      <article class="card panel"><div class="panel-head"><div><h3>私信与人格设置</h3><p>只允许主人触发回复</p></div></div><div class="form-grid"><div class="field"><label for="dm-owner-uid">主人 B站 UID</label><input class="input" id="dm-owner-uid" inputmode="numeric"></div><div class="field"><label for="dm-poll-seconds">私信轮询间隔（秒）</label><input class="input" id="dm-poll-seconds" type="number" min="20" max="3600"></div><div class="field full"><label for="dm-agents-file">AGENTS.md 路径（可选）</label><input class="input" id="dm-agents-file" placeholder="C:\path\to\AGENTS.md"></div></div><div class="callout section"><strong>真实性：</strong>只有摘要真正写入 A-Memorix，才会说“看过”。没有字幕时不会假装看见画面。</div><div class="callout section"><strong>隐私：</strong>私信轮询只读取主人会话；陌生人的内容不会送给模型。</div><div class="terminal section"><div class="terminal-bar"><span>DIAGNOSTICS</span><span>self-check</span></div><pre id="dm-diagnostic">尚未检查</pre></div></article>
+    </div>
+  </section>
+
+</main>
+</div>
+<div id="toast-wrap" class="toast-wrap" aria-live="polite"></div>
+<script>
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const state = { status: null, config: null, allowlist: null, qqAllowlist: null, mode: 'tag', selectedTask: null, settingsDirty: false, chatSelectionDirty: false, dmTasks: [], dmFilter: 'all', dmPersonaLoaded: false, dmTasksLoading: false };
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fmtTime(ts) { return ts ? new Date(ts).toLocaleString('zh-CN', { hour12: false }) : '—'; }
+function duration(task) { if (!task?.startedAt) return ''; const end = task.endedAt || Date.now(); const sec = Math.max(0, Math.round((end - task.startedAt) / 1000)); return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`; }
+function toast(message, type = 'ok') { const node = document.createElement('div'); node.className = `toast ${type}`; node.textContent = message; $('#toast-wrap').append(node); setTimeout(() => node.remove(), 3600); }
+async function request(path, options = {}) { const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`); return data; }
+function setDot(selector, tone) { const el = $(selector); if (el) el.className = `dot ${tone}`; }
+
+async function refreshStatus(initial = false) {
+  try {
+    const status = await request('/api/status');
+    state.status = status;
+    if (initial || !state.config) { state.config = status.config; state.allowlist = status.allowlist; state.qqAllowlist = status.qqAllowlist; fillSettings(); renderAllowlist(); renderQQAllowlist(); }
+    renderStatus(); renderTasks(); renderMemory(); renderChats(); renderDmStatus();
+    if (initial) refreshDm(true);
+    $('#last-refresh').textContent = `更新于 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`;
+  } catch (error) { toast(`面板刷新失败：${error.message}`, 'error'); }
+}
+function renderStatus() {
+  const s = state.status; if (!s) return;
+  const biliOk = Boolean(s.bilibili?.storageStateExists);
+  setDot('#dot-bili', biliOk ? 'ok' : 'warn'); $('#label-bili').textContent = biliOk ? 'B站已登录' : 'B站未登录';
+  $('#bili-tag').textContent = biliOk ? 'READY' : 'LOGIN'; $('#bili-value').textContent = biliOk ? '已登录' : '待扫码'; $('#bili-sub').textContent = biliOk ? '专用浏览器配置已保存' : '点击“B站登录”开始';
+  setDot('#dot-embedding', s.embeddingOnline ? 'ok' : 'bad'); $('#label-embedding').textContent = s.embeddingOnline ? '本地向量在线' : '本地向量离线';
+  $('#embedding-tag').textContent = s.embeddingOnline ? 'ONLINE' : 'OFFLINE'; $('#embedding-value').textContent = s.embeddingOnline ? '在线' : '离线';
+  const memoryOk = Boolean(s.maibot?.runtimeReady && !s.maibot?.degraded);
+  setDot('#dot-memory', memoryOk ? 'ok' : 'warn'); $('#label-memory').textContent = memoryOk ? 'A-Memorix 正常' : 'A-Memorix 降级';
+  $('#memory-tag').textContent = memoryOk ? 'HEALTHY' : 'DEGRADED'; $('#memory-value').textContent = memoryOk ? '就绪' : '异常'; $('#memory-sub').textContent = s.maibot?.retrievalMode ? `检索模式：${s.maibot.retrievalMode}` : '长期记忆运行状态';
+  $('#memory-count').textContent = s.maibot?.activeCount ?? 0; $('#memory-count-sub').textContent = `${s.maibot?.inactiveCount ?? 0} inactive · ${s.maibot?.pinnedCount ?? 0} pinned`;
+  const running = s.activeTask?.status === 'running'; setDot('#dot-task', running ? 'warn' : 'ok'); $('#label-task').textContent = running ? `${s.activeTask.label} 运行中` : '空闲';
+}
+function taskRow(task) { return `<div class="task-row"><button data-task-id="${task.id}"><div class="task-name">${esc(task.label)}</div><div class="task-meta">${esc(fmtTime(task.startedAt))} · ${duration(task)}</div></button><span class="status-label ${task.status}">${esc(task.status)}</span></div>`; }
+function renderTasks() {
+  const s = state.status; if (!s) return;
+  const recent = s.tasks || []; const html = recent.length ? recent.map(taskRow).join('') : '<div class="empty">还没有任务记录</div>';
+  $('#recent-tasks').innerHTML = html; $('#history-tasks').innerHTML = html;
+  $$('[data-task-id]').forEach(button => button.onclick = () => showTask(button.dataset.taskId));
+  if (s.activeTask) renderLog(s.activeTask); else if (state.selectedTask) renderLog(state.selectedTask); else renderLog(null);
+}
+function renderLog(task) {
+  const outputs = $$('.task-log-output'); const text = task?.log || (task ? '任务已结束，没有更多输出。' : '等待任务...');
+  outputs.forEach(node => { node.textContent = text; node.scrollTop = node.scrollHeight; });
+  const meta = task ? `${task.label || task.kind} · ${task.status} · ${duration(task)}` : 'READY';
+  ['#overview-task-meta','#collect-task-meta','#history-task-status'].forEach(id => { if ($(id)) $(id).textContent = meta; });
+  if ($('#overview-task-title')) $('#overview-task-title').textContent = task ? task.label : '当前没有运行中的任务';
+  if ($('#history-task-meta')) $('#history-task-meta').textContent = task ? `${task.label} · ${fmtTime(task.startedAt)}` : '选择一个任务';
+}
+async function showTask(id) { try { state.selectedTask = await request(`/api/tasks/${id}`); renderLog(state.selectedTask); showView('history'); } catch (error) { toast(`读取任务失败：${error.message}`, 'error'); } }
+function renderMemory() {
+  const m = state.status?.maibot; if (!m) return;
+  $('#mem-runtime-tag').textContent = m.runtimeReady ? 'READY' : 'ERROR'; $('#mem-runtime-value').textContent = m.runtimeReady ? (m.degraded ? '降级' : '正常') : '离线';
+  $('#mem-runtime-sub').textContent = m.error || `channels ${m.channels?.length || 0} · unavailable ${m.unavailable?.length || 0}`;
+  $('#mem-vector-tag').textContent = m.vectorDimension ? 'ACTIVE' : 'EMPTY'; $('#mem-vector-value').textContent = `${m.vectorDimension || 0}D`; $('#mem-vector-sub').textContent = `configured ${m.configuredDimension || 0}D`;
+  $('#mem-active-value').textContent = m.activeCount ?? 0; $('#mem-active-sub').textContent = `${m.inactiveCount ?? 0} inactive · ${m.pinnedCount ?? 0} pinned`;
+}
+function renderChats() {
+  const chats = state.status?.maibot?.chats || []; const table = $('#chat-table');
+  table.innerHTML = chats.length ? chats.map(chat => `<tr><td>${esc(chat.chat_name || '未命名')}</td><td>${esc(chat.platform || '')}</td><td class="mono">${esc(chat.group_id || '—')}</td><td class="mono">${esc(chat.chat_id || '')}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">未读取到聊天流</td></tr>';
+  const select = $('#memory-chat-id'); if (!chats.length) return;
+  const current = state.chatSelectionDirty ? select.value : (state.config?.chat_id || '');
+  select.innerHTML = chats.map(chat => `<option value="${esc(chat.chat_id)}">${esc(chat.chat_name || chat.chat_id)} · ${esc(chat.platform || '')}</option>`).join('');
+  if ([...select.options].some(option => option.value === current)) select.value = current;
+}
+function renderAllowlist() {
+  const list = state.allowlist?.accounts || [];
+  $('#allowlist-list').innerHTML = list.length ? list.map(account => `<div class="account-row"><div><div class="account-name">${esc(account.label || 'owner')}</div><div class="account-id">${esc(account.uid)}</div></div><div style="display:flex;gap:8px;align-items:center"><span class="account-tag">BILIBILI</span><button class="button sm danger" data-remove-uid="${esc(account.uid)}">移除</button></div></div>`).join('') : '<div class="empty">白名单为空。添加你的 B站 UID 后才能使用 @ 命令。</div>';
+  $$('[data-remove-uid]').forEach(button => button.onclick = () => removeAllowlist(button.dataset.removeUid));
+}
+function renderQQAllowlist() {
+  const users = state.qqAllowlist?.users || [];
+  const labels = { links: '链接', search: '搜索' };
+  $('#qq-allowlist-list').innerHTML = users.length ? users.map(user => `<div class="account-row"><div><div class="account-name">${esc(user.label || '用户')}</div><div class="account-id">${esc(user.qq)}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="account-tag">${esc((user.permissions || []).map(permission => labels[permission] || permission).join(' / ') || '无权限')}</span><button class="button sm danger" data-remove-qq="${esc(user.qq)}">移除</button></div></div>`).join('') : '<div class="empty">QQ 白名单为空。主人仍可通过 owner_qq 使用全部普通功能。</div>';
+  $$('[data-remove-qq]').forEach(button => button.onclick = () => removeQQAllowlist(button.dataset.removeQq));
+}
+async function removeQQAllowlist(qq) {
+  const users = (state.qqAllowlist?.users || []).filter(user => user.qq !== qq);
+  try { const result = await request('/api/qq-allowlist', { method: 'POST', body: JSON.stringify({ enabled: true, users }) }); state.qqAllowlist = result.qqAllowlist; renderQQAllowlist(); toast('已从 QQ 白名单移除'); } catch (error) { toast(error.message, 'error'); }
+}function fillSettings() {
+  const c = state.config; if (!c) return;
+  $('#set-max').value = c.max_videos_per_run ?? 5; $('#set-scrolls').value = c.home_scrolls ?? 8; $('#set-delay-min').value = c.delay_min_seconds ?? 4; $('#set-delay-max').value = c.delay_max_seconds ?? 10;
+  $('#set-model').value = c.summary_model || 'deepseek-flash'; $('#set-headless').checked = Boolean(c.headless); $('#set-description-only').checked = Boolean(c.description_only_if_no_subtitle);
+    $('#set-keywords').value = (c.tag_filter_keywords || []).join('\n'); $('#set-interest-profile').value = c.interest_profile || ''; $('#set-avoid-topics').value = (c.avoid_topics || []).join('\n'); $('#set-excluded-tags').value = (c.excluded_tags || []).join('\n'); $('#set-min-score').value = c.min_relevance_score ?? 55; $('#set-early-chars').value = c.early_check_chars ?? 3000; $('#set-early-score').value = c.early_min_score ?? 50; $('#memory-scope').value = c.memory_scope || 'chat'; state.settingsDirty = false;
+}
+function renderDmStatus() {
+  const dm = state.status?.dm || {};
+  const recentlyUpdated = Number(dm.updated_at || 0) > 0 && (Date.now() / 1000 - Number(dm.updated_at)) < 240;
+  const running = Boolean(dm.running && recentlyUpdated);
+  const loginOk = Boolean(dm.login?.ok);
+  setDot('#dot-dm', running && loginOk ? 'ok' : running ? 'warn' : 'bad');
+  $('#label-dm').textContent = running ? (loginOk ? '\u79c1\u4fe1\u670d\u52a1\u5728\u7ebf' : '\u79c1\u4fe1\u670d\u52a1\u5f85\u767b\u5f55') : '\u79c1\u4fe1\u670d\u52a1\u79bb\u7ebf';
+  $('#dm-service-tag').textContent = running ? 'RUNNING' : 'STOPPED';
+  $('#dm-service-value').textContent = running ? (loginOk ? '\u8fd0\u884c\u4e2d' : '\u5f85\u767b\u5f55') : '\u672a\u542f\u52a8';
+  $('#dm-service-sub').textContent = dm.last_poll ? `\u4e0a\u6b21\u8f6e\u8be2 ${fmtTime(dm.last_poll * 1000)}` : (dm.last_error || 'polling / delivery');
+  const counts = dm.counts || {};
+  $('#dm-task-count').textContent = counts.total ?? state.dmTasks.length;
+  $('#dm-task-sub').textContent = `completed ${counts.completed || 0} / failed ${counts.failed || 0}`;
+  $('#dm-delivered-count').textContent = counts.delivered || 0;
+  const cfg = state.config?.bili_dm || {};
+  $('#dm-owner-value').textContent = cfg.owner_uid || dm.owner_uid || '1000000003';
+  if (cfg.owner_uid && document.activeElement !== $('#dm-owner-uid')) $('#dm-owner-uid').value = cfg.owner_uid;
+  if (cfg.poll_seconds && document.activeElement !== $('#dm-poll-seconds')) $('#dm-poll-seconds').value = cfg.poll_seconds;
+  if (document.activeElement !== $('#dm-agents-file')) $('#dm-agents-file').value = cfg.agents_file || '';
+}
+function dmTaskCard(task) {
+  const tone = task.status === 'completed' ? 'ok' : task.status === 'failed' ? 'bad' : 'warn';
+  const source = task.source === 'qq' ? 'QQ\u7fa4' : 'B\u7ad9\u79c1\u4fe1';
+  return `<article class="card panel"><div class="panel-head"><div><h3>${esc(task.title || task.bvid || 'B\u7ad9\u89c6\u9891')}</h3><p>${esc(task.bvid || '')} \u00b7 ${fmtTime((task.updated_at || 0) * 1000)}</p></div><span class="dot ${tone}"></span></div><div class="metric-sub">${esc(task.one_line || task.error || '\u7b49\u5f85\u5904\u7406')}</div><div class="action-row section"><span class="tag">${source}</span><span class="tag">${esc(task.category || 'picked')}</span><span class="tag">${task.memory_imported ? 'MEMORY' : 'NO MEMORY'}</span><span class="tag">${task.comment_rpid ? (task.comment_verified ? 'COMMENT VISIBLE' : 'COMMENT ACCEPTED') : 'NO COMMENT'}</span><span class="tag">${task.delivered ? 'DELIVERED' : 'NOT SENT'}</span><a class="button sm ghost" href="${esc(task.url || '#')}" target="_blank" rel="noreferrer">\u6253\u5f00</a></div></article>`;
+}
+function renderDmTasks() {
+  const box = $('#dm-task-grid'); if (!box) return;
+  box.innerHTML = state.dmTasks.length ? state.dmTasks.map(dmTaskCard).join('') : '<div class="empty">\u8fd8\u6ca1\u6709\u79c1\u4fe1\u89c6\u9891\u4efb\u52a1</div>';
+  $$('[data-dm-filter]').forEach(button => button.onclick = async () => { state.dmFilter = button.dataset.dmFilter; await loadDmTasks(state.dmFilter); });
+}
+async function loadDmTasks(filter = state.dmFilter) {
+  if (state.dmTasksLoading) return;
+  state.dmTasksLoading = true;
+  try {
+    const result = await request(`/api/dm/tasks?filter=${encodeURIComponent(filter)}`);
+    state.dmTasks = result.tasks || [];
+    renderDmTasks();
+  } catch (error) {
+    toast(`\u79c1\u4fe1\u4efb\u52a1\u8bfb\u53d6\u5931\u8d25\uff1a${error.message}`, 'error');
+  } finally {
+    state.dmTasksLoading = false;
+  }
+}
+async function loadDmPersona() {
+  try { const result = await request('/api/dm/persona'); $('#dm-persona').value = result.persona || ''; state.dmPersonaLoaded = true; } catch (error) { toast(`\u4eba\u683c\u8bfb\u53d6\u5931\u8d25\uff1a${error.message}`, 'error'); }
+}
+async function refreshDm(initial = false) {
+  await loadDmTasks(state.dmFilter);
+  if (initial || !state.dmPersonaLoaded) await loadDmPersona();
+}
+async function runDmCheck() {
+  try {
+    const result = await request('/api/dm/check', { method: 'POST', body: '{}' });
+    $('#dm-diagnostic').textContent = JSON.stringify(result.report, null, 2);
+    const ok = result.report?.credentials?.ok && result.report?.admin_online;
+    toast(ok ? '\u79c1\u4fe1\u73af\u5883\u6b63\u5e38' : '\u81ea\u68c0\u53d1\u73b0\u95ee\u9898\uff0c\u8be6\u60c5\u89c1\u8bca\u65ad\u6846', ok ? 'ok' : 'error');
+  } catch (error) {
+    $('#dm-diagnostic').textContent = error.message;
+    toast(error.message, 'error');
+  }
+}
+async function saveDmSettings() {
+  try {
+    const body = { bili_dm: { owner_uid: $('#dm-owner-uid').value.trim(), poll_seconds: Number($('#dm-poll-seconds').value), agents_file: $('#dm-agents-file').value.trim(), reply_to_owner_only: true } };
+    const saved = await request('/api/config', { method: 'POST', body: JSON.stringify(body) }); state.config = saved.config;
+    await request('/api/dm/persona', { method: 'POST', body: JSON.stringify({ persona: $('#dm-persona').value }) });
+    toast('\u4eba\u683c\u4e0e\u79c1\u4fe1\u8bbe\u7f6e\u5df2\u4fdd\u5b58');
+  } catch (error) { toast(error.message, 'error'); }
+}
+function showView(name) { $$('.nav button').forEach(button => button.classList.toggle('active', button.dataset.view === name)); $$('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`)); if (name === 'settings' && !state.settingsDirty) fillSettings(); if (name === 'dm') refreshDm(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function setMode(mode) {
+  state.mode = mode; $$('.mode-tab').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+  $('#collect-single-field').classList.toggle('hidden', !['tag','section'].includes(mode)); $('#collect-direct-field').classList.toggle('hidden', mode !== 'direct'); $('#collect-comment-field').classList.toggle('hidden', false);
+  const labels = { tag: ['标签或关键词','例如：AI、人工智能、游戏'], section: ['分区页面 URL','https://www.bilibili.com/v/knowledge/'], home: ['',''], direct: ['',''] };
+  $('#collect-input-label').textContent = labels[mode][0]; $('#collect-value').placeholder = labels[mode][1];
+}
+async function startCollect() {
+  const body = { mode: state.mode, max: Number($('#collect-max').value || 5), import: $('#collect-import').checked };
+  if (['tag','section'].includes(state.mode)) body.value = $('#collect-value').value.trim();
+  if (state.mode === 'direct') body.urls = $('#collect-urls').value;
+  body.publish_comment = $('#collect-publish-comment').checked;
+  try { const result = await request('/api/actions/collect', { method: 'POST', body: JSON.stringify(body) }); state.selectedTask = result.task; toast('采集任务已启动'); renderLog(result.task); await refreshStatus(); }
+  catch (error) { toast(error.message, 'error'); }
+}
+async function runAction(path, successMessage, body = null) {
+  try { const result = await request(path, { method: 'POST', body: body ? JSON.stringify(body) : '{}' }); if (successMessage) toast(successMessage); await refreshStatus(); return result; }
+  catch (error) { toast(error.message, 'error'); throw error; }
+}
+async function removeAllowlist(uid) { const accounts = (state.allowlist?.accounts || []).filter(account => account.uid !== uid); try { const result = await request('/api/allowlist', { method: 'POST', body: JSON.stringify({ accounts }) }); state.allowlist = result.allowlist; renderAllowlist(); toast('已移除白名单账号'); } catch (error) { toast(error.message, 'error'); } }
+async function saveSettings() {
+  const body = {
+    max_videos_per_run: Number($('#set-max').value), home_scrolls: Number($('#set-scrolls').value),
+    delay_min_seconds: Number($('#set-delay-min').value), delay_max_seconds: Number($('#set-delay-max').value),
+    summary_model: $('#set-model').value, triage_model: $('#set-model').value,
+    headless: $('#set-headless').checked, description_only_if_no_subtitle: $('#set-description-only').checked,
+    tag_filter_keywords: $('#set-keywords').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+    interest_profile: $('#set-interest-profile').value.trim(),
+    avoid_topics: $('#set-avoid-topics').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+    excluded_tags: $('#set-excluded-tags').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+    min_relevance_score: Number($('#set-min-score').value), early_check_chars: Number($('#set-early-chars').value),
+    early_min_score: Number($('#set-early-score').value)
+  };
+  try { const result = await request('/api/config', { method: 'POST', body: JSON.stringify(body) }); state.config = result.config; state.settingsDirty = false; toast('设置已保存'); } catch (error) { toast(error.message, 'error'); }
+}
+async function saveMemoryTarget() {
+  try { const result = await request('/api/config', { method: 'POST', body: JSON.stringify({ memory_scope: $('#memory-scope').value, chat_id: $('#memory-chat-id').value || '' }) }); state.config = result.config; state.chatSelectionDirty = false; toast('记忆同步目标已保存'); } catch (error) { toast(error.message, 'error'); }
+}
+$$('.nav button').forEach(button => button.onclick = () => showView(button.dataset.view));
+$$('.mode-tab').forEach(button => button.onclick = () => setMode(button.dataset.mode));
+$('#collect-max').oninput = () => $('#collect-max-out').textContent = $('#collect-max').value;
+$('#memory-chat-id').onchange = () => state.chatSelectionDirty = true;
+$$('#view-settings input, #view-settings textarea, #view-settings select').forEach(input => input.addEventListener('input', () => state.settingsDirty = true));
+$$('[data-preset]').forEach(button => button.onclick = () => { const preset = button.dataset.preset; if (preset === 'ai') { setMode('tag'); $('#collect-value').value = 'AI'; } if (preset === 'knowledge') { setMode('section'); $('#collect-value').value = 'https://www.bilibili.com/v/knowledge/'; } if (preset === 'game') { setMode('section'); $('#collect-value').value = 'https://www.bilibili.com/v/game/'; } if (preset === 'home') setMode('home'); });
+$$('[data-action]').forEach(button => button.onclick = async () => {
+  const action = button.dataset.action;
+  if (action === 'collect-focus') return showView('collect');
+  if (action === 'start-collect') return startCollect();
+  if (action === 'login') return runAction('/api/actions/login', '请在打开的 Edge 中扫码登录');
+  if (action === 'status-check') return runAction('/api/actions/status', '自检任务已启动');
+  if (action === 'embedding-start') return runAction('/api/actions/embedding/start', '本地记忆服务已启动');
+  if (action === 'memory-rebuild') { toast('正在重建向量库，请稍候'); return runAction('/api/actions/memory/rebuild', '向量库修复完成'); }
+  if (action === 'memory-refresh-chats') { await refreshStatus(); return toast('聊天流已刷新'); }
+  if (action === 'stop-task') return runAction('/api/actions/stop', '已请求停止任务');
+  if (action === 'open-maibot') return window.open('http://127.0.0.1:8001', '_blank', 'noopener');
+  if (action === 'open-summaries') return runAction('/api/actions/open-path', '', { name: 'summaries' });
+  if (action === 'open-admin-logs') return runAction('/api/actions/open-path', '', { name: 'adminLogs' });
+  if (action === 'save-settings') return saveSettings();
+  if (action === 'dm-refresh') return refreshDm(true);
+  if (action === 'dm-check') return runDmCheck();
+  if (action === 'dm-start' || action === 'dm-restart') { const path = action === 'dm-start' ? '/api/actions/dm/start' : '/api/actions/dm/restart'; try { await request(path, { method: 'POST', body: '{}' }); toast('已提交重启，正在等待服务心跳'); setTimeout(() => refreshDm(true), 2500); setTimeout(() => refreshStatus(true), 4500); } catch (error) { toast(error.message, 'error'); } return; }
+  if (action === 'save-dm-settings') return saveDmSettings();
+  if (action === 'reload-settings') { await refreshStatus(true); return toast('设置已重新载入'); }
+  if (action === 'save-memory-target') return saveMemoryTarget();
+  if (action === 'add-qq-allowlist') {
+    const qq = $('#new-qq').value.trim(); const label = $('#new-qq-label').value.trim() || '用户';
+    if (!/^\d{3,30}$/.test(qq)) return toast('请输入正确的 QQ 号', 'error');
+    const permissions = [
+      ['links', '#new-qq-perm-links'], ['search', '#new-qq-perm-search'],
+    ].filter(([, selector]) => $(selector).checked).map(([permission]) => permission);
+    const users = [...(state.qqAllowlist?.users || []).filter(user => user.qq !== qq), { qq, label, permissions }];
+    try { const result = await request('/api/qq-allowlist', { method: 'POST', body: JSON.stringify({ enabled: true, users }) }); state.qqAllowlist = result.qqAllowlist; renderQQAllowlist(); $('#new-qq').value = ''; $('#new-qq-label').value = ''; toast('已加入 QQ 白名单'); } catch (error) { toast(error.message, 'error'); }
+    return;
+  }  if (action === 'add-allowlist') {
+    const uid = $('#new-uid').value.trim(); const label = $('#new-label').value.trim() || 'owner';
+    if (!/^\d{3,30}$/.test(uid)) return toast('请输入正确的 B站 UID', 'error');
+    const accounts = [...(state.allowlist?.accounts || []), { platform: 'bilibili', uid, label }];
+    try { const result = await request('/api/allowlist', { method: 'POST', body: JSON.stringify({ accounts }) }); state.allowlist = result.allowlist; renderAllowlist(); $('#new-uid').value = ''; $('#new-label').value = ''; toast('已加入白名单'); } catch (error) { toast(error.message, 'error'); }
+  }
+});
+setMode('tag'); refreshStatus(true); setInterval(() => refreshStatus(false), 15000);
+setInterval(() => { if ($('#view-dm')?.classList.contains('active')) loadDmTasks(state.dmFilter); }, 5000);
+</script>
+</body>
+</html>

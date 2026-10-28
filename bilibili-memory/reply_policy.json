@@ -1,0 +1,11 @@
+{
+  "owner_bilibili_uid": "",
+  "owner_qq_id": "",
+  "tone": "natural, concise, conversational",
+  "avoid_rigid_templates": true,
+  "allow_casual_chat_with_others": true,
+  "allow_control_commands_from_others": false,
+  "control_commands_owner_only": true,
+  "refuse_style": "polite but firm, natural, no lecture",
+  "max_sentences": 3
+}
