@@ -21,8 +21,10 @@ github:binbin-QAQ/BiliMemory
 或者安装 Release 文件：
 
 ```text
-dsh-bilimemory-0.2.0.tgz
+dsh-bilimemory-0.2.1.tgz
 ```
+
+DSH 插件包只负责连接本地后端。若还需要自动安装 Python/Node 依赖并配置 A-Memorix，请使用同一 Release 中的 `BiliMemory-OneClick-0.2.1.zip`。
 
 Desktop 的 `desktop` profile 由 Electron 应用独占，不能通过下面的 CLI 命令修改。CLI 只建议用于其他 profile：
 
@@ -36,7 +38,7 @@ dsh plugin --profile bilimemory-test add github:binbin-QAQ/BiliMemory
 2. 默认后端地址是 `http://127.0.0.1:8765`。
 3. 先调用 `bilimemory_doctor`，再调用 `bilimemory_status`。
 4. B站采集需要登录、Playwright/Edge 和 FFmpeg。
-5. 长期记忆需要本地向量服务和 MaiBot A-Memorix。
+5. 长期记忆需要本地向量服务和 MaiBot A-Memorix；一键部署包会自动配置模型、provider 和 512 维向量。
 6. QQ 功能需要 MaiBot OneKey、NapCat 和 QQ 监听服务。
 7. 长时间采集任务通过任务 ID 查询，不要重复提交。
 8. 不要把管理 API 暴露到公网。
@@ -102,6 +104,13 @@ BILIMEMORY_ADMIN_URL=http://127.0.0.1:8765
 ```
 
 出于安全考虑，插件只允许连接本机回环地址。
+
+长期记忆的 `memory_scope` 由 BiliMemory 后端的 `config.json` 决定：
+
+- `global`：QQ、B站和 DSH 视频任务共用同一个 A-Memorix 长期记忆库，推荐。
+- `chat`：只同步到指定聊天流，必须同时提供有效的 `chat_id`。
+
+一键部署器默认设置 `global`，并调用 `tools\configure_memory.py` 配置 MaiBot。自动配置不会迁移用户已有数据库。
 
 ## 验证安装
 

@@ -4,6 +4,10 @@ param(
   [string]$MaiBotRoot = "",
   [string]$MaiBotPython = "",
   [string]$MaiBotExe = "",
+  [ValidateSet("global", "chat")]
+  [string]$MemoryScope = "global",
+  [string]$MemoryChatId = "",
+  [switch]$SkipMemoryConfiguration,
   [switch]$InstallPrerequisites,
   [switch]$SkipPlaywrightBrowser,
   [switch]$NoStart,
@@ -24,6 +28,8 @@ $venvPython = Join-Path $venvDir "Scripts\python.exe"
 
 if (-not (Test-Path -LiteralPath $appDir)) { throw "BiliMemory source was not found under $InstallRoot. Extract the repository and run install.cmd there." }
 if (-not (Test-Path -LiteralPath $embeddingDir)) { throw "local-embedding directory was not found under $InstallRoot." }
+if ($MemoryChatId -and -not $PSBoundParameters.ContainsKey("MemoryScope")) { $MemoryScope = "chat" }
+if ($MemoryScope -eq "chat" -and -not $MemoryChatId) { throw "-MemoryScope chat requires -MemoryChatId <A-Memorix chat id>." }
 
 function Refresh-Path {
   $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -170,6 +176,7 @@ Write-Host "  BiliMemory root : $InstallRoot"
 Write-Host "  Python venv     : $venvDir"
 Write-Host "  Vector service  : $embeddingDir"
 Write-Host "  Admin API       : http://127.0.0.1:8765"
+Write-Host "  Memory scope    : $MemoryScope"
 Write-Host "  DSH plugin name : dsh-bilimemory"
 
 if ($DryRun) {
@@ -202,6 +209,8 @@ try {
 Write-Step "Creating configuration files"
 $dataDir = Join-Path $appDir "data"
 New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+$biliConfigPath = Join-Path $appDir "config.json"
+$biliConfigExisted = Test-Path -LiteralPath $biliConfigPath
 $copies = @(
   @((Join-Path $appDir "config.example.json"), (Join-Path $appDir "config.json")),
   @((Join-Path $appDir "examples\mention_allowlist.example.json"), (Join-Path $appDir "mention_allowlist.json")),
@@ -212,6 +221,58 @@ foreach ($pair in $copies) {
   if (-not (Test-Path -LiteralPath $pair[1])) { Copy-Item -LiteralPath $pair[0] -Destination $pair[1] }
 }
 
+$biliConfig = Get-Content -LiteralPath $biliConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$memoryScopeExplicit = $PSBoundParameters.ContainsKey("MemoryScope") -or [bool]$MemoryChatId
+if ($biliConfigExisted -and -not $memoryScopeExplicit) {
+  $effectiveMemoryScope = if ($biliConfig.memory_scope -eq "chat") { "chat" } else { "global" }
+} else {
+  $biliConfig.memory_scope = $MemoryScope
+  $effectiveMemoryScope = $MemoryScope
+}
+if ($MemoryChatId) {
+  $biliConfig.chat_id = $MemoryChatId
+}
+if ($effectiveMemoryScope -eq "chat" -and -not ([string]$biliConfig.chat_id).Trim()) {
+  throw "Chat-scoped memory requires a valid A-Memorix chat_id. Pass -MemoryChatId <id> or use -MemoryScope global."
+}
+if (-not $biliConfigExisted -or $memoryScopeExplicit) {
+  [IO.File]::WriteAllText($biliConfigPath, ($biliConfig | ConvertTo-Json -Depth 30), (New-Object Text.UTF8Encoding($false)))
+}
+
+Write-Step "Configuring A-Memorix memory"
+$memoryReady = $false
+if ($SkipMemoryConfiguration) {
+  Write-Warn "A-Memorix configuration was skipped."
+} elseif ($resolvedMaiBotRoot -and $resolvedMaiBotPython) {
+  $memoryArgs = @(
+    (Join-Path $InstallRoot "tools\configure_memory.py"),
+    "--mai-bot-root", $resolvedMaiBotRoot,
+    "--embedding-url", "http://127.0.0.1:11435/v1",
+    "--model-name", "local-bge-small-zh",
+    "--model-id", "bge-small-zh-v1.5",
+    "--dimension", "512",
+    "--apply"
+  )
+  $memoryOutput = & $resolvedMaiBotPython @memoryArgs 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warn "A-Memorix configuration failed: $($memoryOutput -join ' ')"
+  } else {
+    try {
+      $memoryResult = ($memoryOutput -join "`n") | ConvertFrom-Json
+      $memoryReady = [bool]$memoryResult.aMemorixInstalled -and [bool]$memoryResult.applied
+      if ($memoryReady) {
+        Write-Ok "A-Memorix enabled with local-bge-small-zh (512 dimensions)."
+      } else {
+        Write-Warn "A-Memorix module was not found. Update or reinstall MaiBot OneKey before using long-term memory."
+      }
+    } catch {
+      Write-Warn "A-Memorix configuration returned an unreadable result."
+    }
+  }
+} else {
+  Write-Warn "MaiBot was not detected; A-Memorix configuration could not be applied."
+}
+
 $envLines = @(
   "BILIMEMORY_ROOT=$InstallRoot",
   "BILIMEMORY_ADMIN_URL=http://127.0.0.1:8765",
@@ -219,6 +280,7 @@ $envLines = @(
   "MAIBOT_ROOT=$resolvedMaiBotRoot",
   "MAIBOT_PYTHON=$resolvedMaiBotPython",
   "MAIBOT_EXE=$resolvedMaiBotExe",
+  "BILIMEMORY_MEMORY_SCOPE=$effectiveMemoryScope",
   "BILIMEMORY_ENABLE_QQ=1"
 )
 [IO.File]::WriteAllLines((Join-Path $InstallRoot ".env.local"), $envLines, (New-Object Text.UTF8Encoding($false)))
@@ -255,4 +317,6 @@ Write-Host "`nInstallation completed." -ForegroundColor Green
 Write-Host "DSH Desktop: open Plugins -> Install plugin and enter github:binbin-QAQ/BiliMemory"
 Write-Host "Management panel: http://127.0.0.1:8765"
 Write-Host "If Bilibili login is missing: $venvPython bilibili_tool.py login"
+Write-Host "Memory scope: $effectiveMemoryScope"
+Write-Host "Memory ready: $memoryReady"
 Write-Host "Run the desktop shortcut later to start all services."

@@ -50,7 +50,34 @@ $env:BILIMEMORY_MEDIA_PYTHON = 'C:\path\to\BiliMemory\.venv\Scripts\python.exe'
 $env:BILIMEMORY_ADMIN_URL = 'http://127.0.0.1:8765'
 ```
 
-## 5. 本地向量服务
+## 5. A-Memorix 长期记忆
+
+先启动本地 embedding 服务，再让 MaiBot 的 Python 环境执行配置器：
+
+```powershell
+& $env:MAIBOT_PYTHON .\tools\configure_memory.py `
+  --mai-bot-root $env:MAIBOT_ROOT `
+  --embedding-url http://127.0.0.1:11435/v1 `
+  --model-name local-bge-small-zh `
+  --model-id bge-small-zh-v1.5 `
+  --dimension 512 `
+  --apply
+```
+
+配置器会开启 A-Memorix、设置 `data/a-memorix`、写入 embedding 模型与 provider，并在修改前备份 `bot_config.toml` 和 `model_config.toml`。省略 `--apply` 时只检查。
+
+默认建议在 `bilibili-memory\config.json` 中设置：
+
+```json
+{
+  "memory_scope": "global",
+  "chat_id": ""
+}
+```
+
+若要使用聊天流范围，将 `memory_scope` 改为 `chat` 并填写有效 `chat_id`。
+
+## 6. 本地向量服务
 
 ```powershell
 cd local-embedding
@@ -60,7 +87,7 @@ node server.mjs
 
 默认监听 `127.0.0.1:11435`。
 
-## 6. 管理 API
+## 7. 管理 API
 
 ```powershell
 cd bilibili-memory\admin
@@ -71,7 +98,7 @@ node server.mjs
 
 默认监听 `127.0.0.1:8765`。
 
-## 7. B站登录
+## 8. B站登录
 
 ```powershell
 cd ..
@@ -80,7 +107,7 @@ python bilibili_tool.py login
 
 完成后会生成 `storage_state.json` 和 `browser-profile`，两者都不会进入 Git。
 
-## 8. QQ 集成
+## 9. QQ 集成
 
 在 MaiBot OneKey 中启动：
 
@@ -97,11 +124,11 @@ python bili_dm_service.py --run
 
 QQ 白名单和 B站 @ 白名单可在管理面板维护。
 
-## 9. 视频理解可选依赖
+## 10. 视频理解可选依赖
 
 字幕可直接读取。没有字幕时，可安装 Whisper/Transformers 和 FFmpeg；视觉抽帧使用 OpenCV。CPU 可运行，NVIDIA CUDA 会明显加快处理。
 
-## 10. 检查
+## 11. 检查
 
 ```powershell
 python bilibili_tool.py status
